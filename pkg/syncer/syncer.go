@@ -17,7 +17,9 @@ limitations under the License.
 package syncer
 
 import (
+	"fmt"
 	"net/url"
+	"strings"
 	"sync"
 
 	jsoniter "github.com/json-iterator/go"
@@ -119,25 +121,40 @@ func (s *ConfigSyncer) SyncIntoNamespace(namespace string) error {
 		return err
 	}
 
+	syncErrors := []error{}
+
 	configMaps, err := s.kubeClient.CoreV1().ConfigMaps(core.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
-		return err
+		syncErrors = append(syncErrors, err)
 	}
 	for _, configMap := range configMaps.Items {
 		if err = s.syncConfigMapIntoNewNamespace(&configMap, ns); err != nil {
-			return err
+			syncErrors = append(syncErrors, err)
 		}
 	}
 
 	secrets, err := s.kubeClient.CoreV1().Secrets(core.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
-		return err
+		syncErrors = append(syncErrors, err)
 	}
 	for _, secret := range secrets.Items {
 		if err = s.syncSecretIntoNewNamespace(&secret, ns); err != nil {
-			return err
+			syncErrors = append(syncErrors, err)
 		}
 	}
+
+	if len(syncErrors) == 1 {
+		return syncErrors[0]
+	}
+
+	if len(syncErrors) != 0 {
+		syncErrorsStrings := []string{}
+		for _, e := range syncErrors {
+			syncErrorsStrings = append(syncErrorsStrings, e.Error())
+		}
+		return fmt.Errorf("following errors happend: %v", strings.Join(syncErrorsStrings, ", "))
+	}
+
 	return nil
 }
 
