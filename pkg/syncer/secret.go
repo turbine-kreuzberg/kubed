@@ -113,12 +113,12 @@ func (s *ConfigSyncer) syncSecretIntoNamespaces(kc kubernetes.Interface, src *co
 	}
 	for _, ns := range oldNs.List() {
 		if err := kc.CoreV1().Secrets(ns).Delete(src.Name, &metav1.DeleteOptions{}); err != nil {
-			return err
+			log.Errorln(err)
 		}
 	}
 	for _, ns := range newNs.List() {
 		if err = s.upsertSecret(kc, src, ns, context); err != nil {
-			return err
+			log.Errorln(err)
 		}
 	}
 	return nil
